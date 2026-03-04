@@ -3,6 +3,9 @@ name: Build and Auto-Release on Push
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'main.py'
+      - 'assets/**'
 
 permissions:
   contents: write
@@ -10,7 +13,6 @@ permissions:
 jobs:
   build-windows-exe:
     runs-on: windows-latest
-
     steps:
       - name: Checkout repository (read-only)
         uses: actions/checkout@v4
@@ -35,23 +37,23 @@ jobs:
           fi
           pip install pyinstaller
 
-      - name: Build executable using PyInstaller
+      - name: Build executable using PyInstaller as keygen.exe
         shell: bash
         run: |
           source winrar/Scripts/activate
-          pyinstaller --onefile --windowed --icon=app.ico main.py
+          pyinstaller --onefile --windowed --icon=app.ico --name keygen main.py
 
-      - name: Locate the generated .exe file
+      - name: Locate the generated keygen.exe file
         id: find_exe
         shell: bash
         run: |
-          exe_path=$(find dist -type f -name "*.exe" | head -n1)
-          if [ -z "$exe_path" ]; then
-            echo "❌ No .exe file found in dist/ directory."
+          exe_path="dist/keygen.exe"
+          if [ ! -f "$exe_path" ]; then
+            echo "❌ keygen.exe not found in dist/ directory."
             exit 1
           fi
           echo "exe_path=$exe_path" >> $GITHUB_ENV
-          echo "exe_name=$(basename "$exe_path")" >> $GITHUB_ENV
+          echo "exe_name=keygen.exe" >> $GITHUB_ENV
           echo "✅ Found executable: $exe_path"
 
       - name: Determine next sequential release version (v1, v2, ...)
@@ -75,7 +77,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create GitHub Release and Upload .exe
+      - name: Create GitHub Release and Upload keygen.exe
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.next_tag }}
