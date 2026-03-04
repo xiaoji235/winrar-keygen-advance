@@ -1,5 +1,4 @@
 name: Build and Auto-Release on Push or Manual Trigger
-
 on:
   push:
     branches: [ main ]
@@ -14,69 +13,36 @@ jobs:
   build-windows-exe:
     runs-on: windows-latest
     steps:
-      - name: Checkout repository (read-only)
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Create virtual environment named 'winrar'
-        run: python -m venv winrar
-
-      - name: Activate venv and install dependencies
-        shell: bash
+      - name: Install dependencies and PyInstaller
         run: |
-          source winrar/Scripts/activate
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
-          fi
+          if (Test-Path "requirements.txt") { pip install -r requirements.txt }
           pip install pyinstaller
 
-      - name: Build executable using PyInstaller as keygen.exe
-        shell: bash
+      - name: Build executable using PyInstaller
         run: |
-          source winrar/Scripts/activate
-          pyinstaller --onefile --windowed --icon=app.ico --name keygen main.py
+          pyinstaller --onefile --windowed `
+            --add-data "winrar-keygen-x64.exe;." `
+            --icon=app.ico `
+            --name keygen `
+            main.py
 
-      - name: Copy winrar-keygen-x64.exe to dist folder
+      - name: Verify keygen.exe exists
         shell: bash
         run: |
-          if [ -f "winrar-keygen-x64.exe" ]; then
-            cp "winrar-keygen-x64.exe" "dist/"
-            echo "✅ Copied winrar-keygen-x64.exe to dist/"
-          else
-            echo "⚠️ Warning: winrar-keygen-x64.exe not found in repository root"
-          fi
-
-      - name: Locate all required files
-        id: find_files
-        shell: bash
-        run: |
-          exe_path="dist/keygen.exe"
-          asset_path="dist/winrar-keygen-x64.exe"
-          
-          if [ ! -f "$exe_path" ]; then
-            echo "❌ keygen.exe not found in dist/ directory."
+          if [ ! -f "dist/keygen.exe" ]; then
+            echo "❌ Build failed: dist/keygen.exe not found"
             exit 1
           fi
-          
-          if [ ! -f "$asset_path" ]; then
-            echo "⚠️ Warning: winrar-keygen-x64.exe not found in dist/ directory."
-          else
-            echo "✅ Found both executables:"
-            echo "   - keygen.exe: $exe_path"
-            echo "   - winrar-keygen-x64.exe: $asset_path"
-          fi
-          
-          echo "exe_path=$exe_path" >> $GITHUB_ENV
-          echo "asset_path=$asset_path" >> $GITHUB_ENV
-          echo "exe_name=keygen.exe" >> $GITHUB_ENV
-          echo "asset_name=winrar-keygen-x64.exe" >> $GITHUB_ENV
+          echo "✅ keygen.exe built successfully"
 
       - name: Determine next sequential release version (v1, v2, ...)
         id: get_next_version
@@ -87,9 +53,7 @@ jobs:
           while IFS= read -r tag; do
             if [[ $tag =~ ^v([0-9]+)$ ]]; then
               num=${BASH_REMATCH[1]}
-              if (( num > max_ver )); then
-                max_ver=$num
-              fi
+              (( num > max_ver )) && max_ver=$num
             fi
           done <<< "$tags"
           next_ver=$((max_ver + 1))
@@ -98,14 +62,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create GitHub Release and Upload both executables
+      - name: Create GitHub Release and Upload keygen.exe only
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.next_tag }}
           name: ${{ env.release_name }}
-          body: The *.exe needs to be downloaded to the same path in order to run!
-          files: |
-            ${{ env.exe_path }}
-            ${{ env.asset_path }}
-          draft: false
-          prerelease: false
+          body: "Auto-built Windows executable (`keygen.exe`). All required assets are embedded."
+          files: dist/keygen.exe
