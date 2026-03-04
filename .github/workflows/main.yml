@@ -1,4 +1,4 @@
-name: Build and Auto-Release on Push
+name: Build and Auto-Release on Push or Manual Trigger
 
 on:
   push:
@@ -6,6 +6,7 @@ on:
     paths:
       - 'main.py'
       - 'assets/**'
+  workflow_dispatch:  # 👈 允许手动触发
 
 permissions:
   contents: write
@@ -17,7 +18,7 @@ jobs:
       - name: Checkout repository (read-only)
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # 获取完整历史，便于检查已有 releases
+          fetch-depth: 0
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -60,7 +61,6 @@ jobs:
         id: get_next_version
         shell: bash
         run: |
-          # 使用 GitHub CLI 获取所有 release tag
           tags=$(gh api repos/${{ github.repository }}/releases --paginate --jq '.[].tag_name')
           max_ver=0
           while IFS= read -r tag; do
