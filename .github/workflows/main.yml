@@ -43,14 +43,14 @@ jobs:
           source winrar/Scripts/activate
           pyinstaller --onefile --windowed --icon=app.ico --name keygen main.py
 
-      - name: Copy assets/winrar-keygen-x64.exe to dist folder
+      - name: Copy winrar-keygen-x64.exe to dist folder
         shell: bash
         run: |
-          if [ -f "assets/winrar-keygen-x64.exe" ]; then
-            cp "assets/winrar-keygen-x64.exe" "dist/"
-            echo "✅ Copied assets/winrar-keygen-x64.exe to dist/"
+          if [ -f "winrar-keygen-x64.exe" ]; then
+            cp "winrar-keygen-x64.exe" "dist/"
+            echo "✅ Copied winrar-keygen-x64.exe to dist/"
           else
-            echo "⚠️ Warning: assets/winrar-keygen-x64.exe not found"
+            echo "⚠️ Warning: winrar-keygen-x64.exe not found in repository root"
           fi
 
       - name: Locate all required files
