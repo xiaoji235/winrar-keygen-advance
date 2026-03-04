@@ -40,8 +40,14 @@ class Worker(QRunnable):
         try:
             result = self.fn(*self.args, **self.kwargs)
             if result is not None:
-                url, h2_text = result
-                self.signals.success.emit(url, h2_text)
+                # 修改这里：检查返回值类型
+                if isinstance(result, tuple) and len(result) == 2:
+                    # 对于fetch_chinese_url_task的情况
+                    url, h2_text = result
+                    self.signals.success.emit(url, h2_text)
+                elif isinstance(result, str):
+                    # 对于generate_key_task的情况，只发送一个消息
+                    self.signals.success.emit("", result)
         except Exception as e:
             self.signals.error.emit(str(e))
         finally:
@@ -51,9 +57,9 @@ class Worker(QRunnable):
 # === 任务函数 ===
 def generate_key_task(username, password, exe_path, output_dir):
     if not username.strip():
-        raise ValueError("请输入用户名")
+        raise ValueError("请输入授权用户名")
     if not password.strip():
-        raise ValueError("请输入密码")
+        raise ValueError("请输入授权信息")
     exe = Path(exe_path)
     if not exe.exists():
         raise FileNotFoundError(f"找不到EXE文件: {exe}")
@@ -119,7 +125,7 @@ class WinRARExecutor(QWidget):
         self.version_label.setStyleSheet("color: #555;")
         
         self.version_text = QLabel("点击“刷新”获取版本信息")
-        self.version_text.setStyleSheet("color: #000")
+        self.version_text.setStyleSheet("color: #000;")
         self.version_text.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         
         self.refresh_btn = QPushButton("刷新")
@@ -155,7 +161,7 @@ class WinRARExecutor(QWidget):
         main_layout.addWidget(group1)
 
         # ===== 区域2：生成注册密钥 =====
-        group2 = QGroupBox("🔑 授权信息")
+        group2 = QGroupBox("🔑 生成 WinRAR 注册密钥")
         group2.setFont(QFont("Microsoft YaHei", 9, QFont.Bold))
         layout2 = QVBoxLayout()
         layout2.setSpacing(10)
@@ -172,12 +178,12 @@ class WinRARExecutor(QWidget):
         pwd_layout.setSpacing(6)
         pwd_layout.addWidget(QLabel("授权信息:"))
         self.password_entry = QLineEdit()
-        self.password_entry.setPlaceholderText("请填写授权信息")
+        self.password_entry.setPlaceholderText("请输入授权信息")
         self.password_entry.setEchoMode(QLineEdit.Password)
         pwd_layout.addWidget(self.password_entry)
         layout2.addLayout(pwd_layout)
 
-        self.generate_btn = QPushButton("生成授权文件")
+        self.generate_btn = QPushButton("生成密钥文件")
         self.generate_btn.clicked.connect(self.start_generate_key)
         layout2.addWidget(self.generate_btn)
 
@@ -206,9 +212,12 @@ class WinRARExecutor(QWidget):
         )
 
     def on_url_received(self, url, h2_text):
-        self.current_url = url
-        self.url_display.setText(url)
-        self.version_text.setText(h2_text)
+        if h2_text:  # 如果h2_text非空，则这是URL获取的结果
+            self.current_url = url
+            self.url_display.setText(url)
+            self.version_text.setText(h2_text)
+        else:  # 否则这是密钥生成的结果
+            self.show_message("成功", url)  # url参数此时包含的是消息文本
 
     def on_fetch_error(self, err):
         self.version_text.setText("获取失败")
@@ -231,9 +240,13 @@ class WinRARExecutor(QWidget):
             self.password_entry.text(),
             exe_path,
             str(self.appdata_winrar),
-            on_success=lambda msg: self.show_message("成功", msg),
+            on_success=self.on_key_generated,
             on_error=lambda err: self.show_message("错误", f"生成失败:\n{err}")
         )
+
+    def on_key_generated(self, _, message):  # 修改回调函数接收两个参数
+        # 第一个参数是空的URL，第二个参数是实际的消息
+        self.show_message("成功", message)
 
     def show_message(self, title, text):
         # 保留必要弹窗（生成结果），因无其他位置显示长路径
