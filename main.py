@@ -209,7 +209,6 @@ class WinRARExecutor(QWidget):
         self.current_url = url
         self.url_display.setText(url)
         self.version_text.setText(h2_text)
-        # 不再弹窗，信息直接显示在界面上
 
     def on_fetch_error(self, err):
         self.version_text.setText("获取失败")
@@ -225,7 +224,6 @@ class WinRARExecutor(QWidget):
             self.version_text.setText("浏览器启动失败")
 
     def start_generate_key(self):
-        # 修改：exe_path现在与main.py在同一目录下
         exe_path = Path(__file__).parent / "winrar-keygen-x64.exe"
         self.run_task(
             generate_key_task,
