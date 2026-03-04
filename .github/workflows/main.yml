@@ -5,8 +5,7 @@ on:
     branches: [ main ]
     paths:
       - 'main.py'
-      - 'assets/**'
-  workflow_dispatch:  # 👈 允许手动触发
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -44,18 +43,40 @@ jobs:
           source winrar/Scripts/activate
           pyinstaller --onefile --windowed --icon=app.ico --name keygen main.py
 
-      - name: Locate the generated keygen.exe file
-        id: find_exe
+      - name: Copy assets/winrar-keygen-x64.exe to dist folder
+        shell: bash
+        run: |
+          if [ -f "assets/winrar-keygen-x64.exe" ]; then
+            cp "assets/winrar-keygen-x64.exe" "dist/"
+            echo "✅ Copied assets/winrar-keygen-x64.exe to dist/"
+          else
+            echo "⚠️ Warning: assets/winrar-keygen-x64.exe not found"
+          fi
+
+      - name: Locate all required files
+        id: find_files
         shell: bash
         run: |
           exe_path="dist/keygen.exe"
+          asset_path="dist/winrar-keygen-x64.exe"
+          
           if [ ! -f "$exe_path" ]; then
             echo "❌ keygen.exe not found in dist/ directory."
             exit 1
           fi
+          
+          if [ ! -f "$asset_path" ]; then
+            echo "⚠️ Warning: winrar-keygen-x64.exe not found in dist/ directory."
+          else
+            echo "✅ Found both executables:"
+            echo "   - keygen.exe: $exe_path"
+            echo "   - winrar-keygen-x64.exe: $asset_path"
+          fi
+          
           echo "exe_path=$exe_path" >> $GITHUB_ENV
+          echo "asset_path=$asset_path" >> $GITHUB_ENV
           echo "exe_name=keygen.exe" >> $GITHUB_ENV
-          echo "✅ Found executable: $exe_path"
+          echo "asset_name=winrar-keygen-x64.exe" >> $GITHUB_ENV
 
       - name: Determine next sequential release version (v1, v2, ...)
         id: get_next_version
@@ -77,11 +98,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create GitHub Release and Upload keygen.exe
+      - name: Create GitHub Release and Upload both executables
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.next_tag }}
           name: ${{ env.release_name }}
-          files: ${{ env.exe_path }}
+          body: The *.exe needs to be downloaded to the same path in order to run!
+          files: |
+            ${{ env.exe_path }}
+            ${{ env.asset_path }}
           draft: false
           prerelease: false
