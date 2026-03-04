@@ -1,5 +1,6 @@
 # winrar-keygen-advance
 One key to download & install & register winrar，no ads edition.
+Please open keygen.exe instead of winrar-keygen-x64.exe
 - Thanks to [bitcookies opensource](https://github.com/bitcookies/winrar-keygen)
 ## ⚠ Attation！
 You need to put *.exe in the same folder to run properly
