@@ -1,0 +1,85 @@
+name: Build and Auto-Release on Push
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows-exe:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository (read-only)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 获取完整历史，便于检查已有 releases
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Create virtual environment named 'winrar'
+        run: python -m venv winrar
+
+      - name: Activate venv and install dependencies
+        shell: bash
+        run: |
+          source winrar/Scripts/activate
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          fi
+          pip install pyinstaller
+
+      - name: Build executable using PyInstaller
+        shell: bash
+        run: |
+          source winrar/Scripts/activate
+          pyinstaller --onefile --windowed --icon=app.ico main.py
+
+      - name: Locate the generated .exe file
+        id: find_exe
+        shell: bash
+        run: |
+          exe_path=$(find dist -type f -name "*.exe" | head -n1)
+          if [ -z "$exe_path" ]; then
+            echo "❌ No .exe file found in dist/ directory."
+            exit 1
+          fi
+          echo "exe_path=$exe_path" >> $GITHUB_ENV
+          echo "exe_name=$(basename "$exe_path")" >> $GITHUB_ENV
+          echo "✅ Found executable: $exe_path"
+
+      - name: Determine next sequential release version (v1, v2, ...)
+        id: get_next_version
+        shell: bash
+        run: |
+          # 使用 GitHub CLI 获取所有 release tag
+          tags=$(gh api repos/${{ github.repository }}/releases --paginate --jq '.[].tag_name')
+          max_ver=0
+          while IFS= read -r tag; do
+            if [[ $tag =~ ^v([0-9]+)$ ]]; then
+              num=${BASH_REMATCH[1]}
+              if (( num > max_ver )); then
+                max_ver=$num
+              fi
+            fi
+          done <<< "$tags"
+          next_ver=$((max_ver + 1))
+          echo "next_tag=v$next_ver" >> $GITHUB_ENV
+          echo "release_name=Release v$next_ver" >> $GITHUB_ENV
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Release and Upload .exe
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.next_tag }}
+          name: ${{ env.release_name }}
+          files: ${{ env.exe_path }}
+          draft: false
+          prerelease: false
