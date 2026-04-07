@@ -1,4 +1,4 @@
-# winrar-keygen-advance
+# winrar-keygen-easy
 One key to download & install & register winrar，no ads edition.
 Please open keygen.exe instead of winrar-keygen-x64.exe
 - First，you need click "refresh" button to fetch url.
